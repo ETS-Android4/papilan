@@ -55,6 +55,7 @@ import xyz.zedler.patrick.grocy.model.StockEntry;
 import xyz.zedler.patrick.grocy.model.StockItem;
 import xyz.zedler.patrick.grocy.model.StockLocation;
 import xyz.zedler.patrick.grocy.model.Store;
+import xyz.zedler.patrick.grocy.repository.StorageRepository;
 import xyz.zedler.patrick.grocy.util.Constants;
 import xyz.zedler.patrick.grocy.util.DateUtil;
 import xyz.zedler.patrick.grocy.util.PrefsUtil;
@@ -72,6 +73,7 @@ public class DownloadHelper {
   private final OnLoadingListener onLoadingListener;
   private final SharedPreferences sharedPrefs;
   private final DateUtil dateUtil;
+  private final StorageRepository storageRepository;
 
   private final ArrayList<Queue> queueArrayList;
   private final String tag;
@@ -91,6 +93,7 @@ public class DownloadHelper {
     sharedPrefs = PreferenceManager.getDefaultSharedPreferences(application);
     debug = PrefsUtil.isDebuggingEnabled(sharedPrefs);
     dateUtil = new DateUtil(application);
+    storageRepository = new StorageRepository(application);
     gson = new Gson();
     requestQueue = RequestQueueSingleton.getInstance(application).getRequestQueue();
     grocyApi = new GrocyApi(application);
@@ -127,6 +130,7 @@ public class DownloadHelper {
     debug = PrefsUtil.isDebuggingEnabled(sharedPrefs);
     gson = new Gson();
     dateUtil = new DateUtil(application);
+    storageRepository = new StorageRepository(application);
     RequestQueueSingleton.getInstance(application).newRequestQueue(serverUrl);
     requestQueue = RequestQueueSingleton.getInstance(application).getRequestQueue();
     grocyApi = new GrocyApi(application, serverUrl);
@@ -860,12 +864,9 @@ public class DownloadHelper {
       String dbChangedTime,
       OnProductsResponseListener onResponseListener
   ) {
-    OnProductsResponseListener newOnResponseListener = products -> {
-      SharedPreferences.Editor editPrefs = sharedPrefs.edit();
-      editPrefs.putString(Constants.PREF.DB_LAST_TIME_PRODUCTS, dbChangedTime);
-      editPrefs.apply();
-      onResponseListener.onResponse(products);
-    };
+    OnProductsResponseListener newOnResponseListener = products -> storageRepository.storeProducts(
+        products, dbChangedTime, () -> onResponseListener.onResponse(products)
+    );
     String lastTime = sharedPrefs.getString(  // get last offline db-changed-time value
         Constants.PREF.DB_LAST_TIME_PRODUCTS, null
     );
@@ -1083,14 +1084,10 @@ public class DownloadHelper {
       String dbChangedTime,
       OnStockItemsResponseListener onResponseListener
   ) {
-    OnStockItemsResponseListener newOnResponseListener = stockItems -> {
-      SharedPreferences.Editor editPrefs = sharedPrefs.edit();
-      editPrefs.putString(
-          Constants.PREF.DB_LAST_TIME_STOCK_ITEMS, dbChangedTime
-      );
-      editPrefs.apply();
-      onResponseListener.onResponse(stockItems);
-    };
+    OnStockItemsResponseListener newOnResponseListener = stockItems ->
+        storageRepository.storeStockItems(
+            stockItems, dbChangedTime, () -> onResponseListener.onResponse(stockItems)
+        );
     String lastTime = sharedPrefs.getString(  // get last offline db-changed-time value
         Constants.PREF.DB_LAST_TIME_STOCK_ITEMS, null
     );
@@ -1198,19 +1195,11 @@ public class DownloadHelper {
       String dbChangedTime,
       OnVolatileResponseListener onResponseListener
   ) {
-    OnVolatileResponseListener newOnResponseListener = (due, overdue, expired, missing) -> {
-      SharedPreferences.Editor editPrefs = sharedPrefs.edit();
-      editPrefs.putString(
-          Constants.PREF.DB_LAST_TIME_VOLATILE, dbChangedTime
-      );
-      editPrefs.apply();
-      onResponseListener.onResponse(due, overdue, expired, missing);
-    };
     String lastTime = sharedPrefs.getString(  // get last offline db-changed-time value
         Constants.PREF.DB_LAST_TIME_VOLATILE, null
     );
     if (lastTime == null || !lastTime.equals(dbChangedTime)) {
-      return getVolatile(newOnResponseListener, null);
+      return getVolatile(onResponseListener, null);
     } else {
       if (debug) {
         Log.i(tag, "downloadData: skipped Volatile download");
@@ -1501,14 +1490,10 @@ public class DownloadHelper {
       String dbChangedTime,
       OnShoppingListItemsResponseListener onResponseListener
   ) {
-    OnShoppingListItemsResponseListener newOnResponseListener = shoppingListItems -> {
-      SharedPreferences.Editor editPrefs = sharedPrefs.edit();
-      editPrefs.putString(
-          Constants.PREF.DB_LAST_TIME_SHOPPING_LIST_ITEMS, dbChangedTime
-      );
-      editPrefs.apply();
-      onResponseListener.onResponse(shoppingListItems);
-    };
+    OnShoppingListItemsResponseListener newOnResponseListener = shoppingListItems ->
+        storageRepository.storeShoppingListItems(
+            shoppingListItems, dbChangedTime, () -> onResponseListener.onResponse(shoppingListItems)
+        );
     String lastTime = sharedPrefs.getString(  // get last offline db-changed-time value
         Constants.PREF.DB_LAST_TIME_SHOPPING_LIST_ITEMS, null
     );

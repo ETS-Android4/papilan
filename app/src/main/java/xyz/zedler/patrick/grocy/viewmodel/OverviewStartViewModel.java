@@ -40,6 +40,7 @@ import xyz.zedler.patrick.grocy.model.Product;
 import xyz.zedler.patrick.grocy.model.ShoppingListItem;
 import xyz.zedler.patrick.grocy.model.StockItem;
 import xyz.zedler.patrick.grocy.repository.OverviewStartRepository;
+import xyz.zedler.patrick.grocy.repository.StorageRepository;
 import xyz.zedler.patrick.grocy.util.Constants;
 import xyz.zedler.patrick.grocy.util.Constants.PREF;
 import xyz.zedler.patrick.grocy.util.Constants.SETTINGS.STOCK;
@@ -54,6 +55,7 @@ public class OverviewStartViewModel extends BaseViewModel {
   private final SharedPreferences sharedPrefs;
   private final DownloadHelper dlHelper;
   private final OverviewStartRepository repository;
+  private final StorageRepository storageRepository;
 
   private final MutableLiveData<Boolean> isLoadingLive;
   private final MutableLiveData<InfoFullscreen> infoFullscreenLive;
@@ -93,6 +95,7 @@ public class OverviewStartViewModel extends BaseViewModel {
     isLoadingLive = new MutableLiveData<>(false);
     dlHelper = new DownloadHelper(getApplication(), TAG, isLoadingLive::setValue);
     repository = new OverviewStartRepository(application);
+    storageRepository = new StorageRepository(application);
 
     infoFullscreenLive = new MutableLiveData<>();
     offlineLive = new MutableLiveData<>(false);
@@ -305,8 +308,16 @@ public class OverviewStartViewModel extends BaseViewModel {
     }
 
     DownloadHelper.OnQueueEmptyListener onQueueEmptyListener = () -> {
-      if (stockItemsTemp == null || dueItemsTemp == null || overdueItemsTemp == null
-          || expiredItemsTemp == null || missingItemsTemp == null) {
+      if (stockItemsTemp == null && dueItemsTemp == null && overdueItemsTemp == null
+          && expiredItemsTemp == null && missingItemsTemp == null) {
+        onQueueEmpty();
+        return;
+      } else if (stockItemsTemp != null && dueItemsTemp == null && overdueItemsTemp == null
+          && expiredItemsTemp == null && missingItemsTemp == null) {
+        downloadDataForceUpdate();
+        return;
+      } else if (stockItemsTemp == null && dueItemsTemp != null && overdueItemsTemp != null
+          && expiredItemsTemp != null && missingItemsTemp != null) {
         downloadDataForceUpdate();
         return;
       }
@@ -348,7 +359,14 @@ public class OverviewStartViewModel extends BaseViewModel {
         }
       }
 
-      DownloadHelper.Queue queue = dlHelper.newQueue(this::onQueueEmpty, this::onDownloadError);
+      DownloadHelper.Queue queue = dlHelper.newQueue(() -> {
+        storageRepository.storeStockItems(
+            stockItemsTemp,
+            dbChangedTime,
+            () -> sharedPrefs.edit().putString(PREF.DB_LAST_TIME_VOLATILE, dbChangedTime).apply()
+        );
+        onQueueEmpty();
+      }, this::onDownloadError);
 
       int missingItemsOnShoppingListCount = 0;
 
@@ -420,12 +438,6 @@ public class OverviewStartViewModel extends BaseViewModel {
       setOfflineLive(false);
     }
     infoFullscreenLive.setValue(null);
-    repository.updateDatabase(
-        stockItemsTemp,
-        this.shoppingListItemsLive.getValue(),
-        this.productsLive.getValue(),
-        () -> this.stockItemsLive.setValue(stockItemsTemp)
-    );
   }
 
   private void onDownloadError(@Nullable VolleyError error) {
