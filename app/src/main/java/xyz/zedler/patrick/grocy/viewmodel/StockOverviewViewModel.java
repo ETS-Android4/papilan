@@ -30,6 +30,7 @@ import com.android.volley.VolleyError;
 import com.google.android.material.snackbar.Snackbar;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import org.json.JSONException;
 import org.json.JSONObject;
 import xyz.zedler.patrick.grocy.R;
@@ -78,16 +79,16 @@ public class StockOverviewViewModel extends BaseViewModel {
   private final FilterChipLiveDataProductGroup filterChipLiveDataProductGroup;
   private final FilterChipLiveDataLocation filterChipLiveDataLocation;
 
-  private ArrayList<StockItem> stockItems;
-  private ArrayList<Product> products;
-  private ArrayList<ProductGroup> productGroups;
-  private ArrayList<ProductBarcode> productBarcodesTemp;
+  private List<StockItem> stockItems;
+  private List<Product> products;
+  private List<ProductGroup> productGroups;
+  private List<ProductBarcode> productBarcodesTemp;
   private HashMap<String, ProductBarcode> productBarcodeHashMap;
   private HashMap<Integer, Product> productHashMap;
-  private ArrayList<ShoppingListItem> shoppingListItems;
+  private List<ShoppingListItem> shoppingListItems;
   private ArrayList<String> shoppingListItemsProductIds;
-  private ArrayList<QuantityUnit> quantityUnits;
-  private ArrayList<Location> locations;
+  private List<QuantityUnit> quantityUnits;
+  private List<Location> locations;
   private HashMap<Integer, QuantityUnit> quantityUnitHashMap;
   private ArrayList<StockItem> dueItemsTemp;
   private ArrayList<StockItem> overdueItemsTemp;
@@ -95,7 +96,7 @@ public class StockOverviewViewModel extends BaseViewModel {
   private ArrayList<MissingItem> missingItemsTemp;
   private HashMap<Integer, StockItem> productIdsMissingStockItems;
   private HashMap<Integer, Location> locationHashMap;
-  private ArrayList<StockLocation> stockCurrentLocationsTemp;
+  private List<StockLocation> stockCurrentLocationsTemp;
   private HashMap<Integer, HashMap<Integer, StockLocation>> stockLocationsHashMap;
 
   private DownloadHelper.Queue currentQueueLoading;
@@ -138,91 +139,89 @@ public class StockOverviewViewModel extends BaseViewModel {
   }
 
   public void loadFromDatabase(boolean downloadAfterLoading) {
-    repository.loadFromDatabase(
-        (quantityUnits, productGroups, stockItems, products, barcodes, shoppingListItems, locations, stockLocations) -> {
-          this.quantityUnits = quantityUnits;
-          quantityUnitHashMap = new HashMap<>();
-          for (QuantityUnit quantityUnit : quantityUnits) {
-            quantityUnitHashMap.put(quantityUnit.getId(), quantityUnit);
-          }
-          this.productGroups = productGroups;
-          filterChipLiveDataProductGroup.setProductGroups(productGroups);
-          this.products = products;
-          productHashMap = new HashMap<>();
-          for (Product product : products) {
-            productHashMap.put(product.getId(), product);
-          }
-          this.productBarcodesTemp = barcodes;
-          productBarcodeHashMap = new HashMap<>();
-          for (ProductBarcode barcode : barcodes) {
-            productBarcodeHashMap.put(barcode.getBarcode(), barcode);
-          }
-          int itemsDueCount = 0;
-          int itemsOverdueCount = 0;
-          int itemsExpiredCount = 0;
-          int itemsMissingCount = 0;
-          int itemsInStockCount = 0;
-          productIdsMissingStockItems = new HashMap<>();
-          this.stockItems = stockItems;
-          for (StockItem stockItem : stockItems) {
-            stockItem.setProduct(productHashMap.get(stockItem.getProductId()));
-            if (stockItem.isItemDue()) {
-              itemsDueCount++;
-            }
-            if (stockItem.isItemOverdue()) {
-              itemsOverdueCount++;
-            }
-            if (stockItem.isItemExpired()) {
-              itemsExpiredCount++;
-            }
-            if (stockItem.isItemMissing()) {
-              itemsMissingCount++;
-              productIdsMissingStockItems.put(stockItem.getProductId(), stockItem);
-            }
-            if (!stockItem.isItemMissing() || stockItem.isItemMissingAndPartlyInStock()) {
-              itemsInStockCount++;
-            }
-          }
-
-          this.shoppingListItems = shoppingListItems;
-          shoppingListItemsProductIds = new ArrayList<>();
-          for (ShoppingListItem item : shoppingListItems) {
-            if (item.getProductId() != null && !item.getProductId().isEmpty()) {
-              shoppingListItemsProductIds.add(item.getProductId());
-            }
-          }
-          this.locations = locations;
-          filterChipLiveDataLocation.setLocations(locations);
-          locationHashMap = new HashMap<>();
-          for (Location location : locations) {
-            locationHashMap.put(location.getId(), location);
-          }
-
-          this.stockCurrentLocationsTemp = stockLocations;
-          stockLocationsHashMap = new HashMap<>();
-          for (StockLocation stockLocation : stockLocations) {
-            HashMap<Integer, StockLocation> locationsForProductId = stockLocationsHashMap
-                .get(stockLocation.getProductId());
-            if (locationsForProductId == null) {
-              locationsForProductId = new HashMap<>();
-              stockLocationsHashMap.put(stockLocation.getProductId(), locationsForProductId);
-            }
-            locationsForProductId.put(stockLocation.getLocationId(), stockLocation);
-          }
-
-          filterChipLiveDataStatus
-              .setDueSoonCount(itemsDueCount)
-              .setOverdueCount(itemsOverdueCount)
-              .setExpiredCount(itemsExpiredCount)
-              .setBelowStockCount(itemsMissingCount)
-              .setInStockCount(itemsInStockCount)
-              .emitCounts();
-          updateFilteredStockItems();
-          if (downloadAfterLoading) {
-            downloadData();
-          }
+    repository.load(data -> {
+      this.quantityUnits = data.quantityUnits;
+      quantityUnitHashMap = new HashMap<>();
+      for (QuantityUnit quantityUnit : quantityUnits) {
+        quantityUnitHashMap.put(quantityUnit.getId(), quantityUnit);
+      }
+      this.productGroups = data.productGroups;
+      filterChipLiveDataProductGroup.setProductGroups(productGroups);
+      this.products = data.products;
+      productHashMap = new HashMap<>();
+      for (Product product : products) {
+        productHashMap.put(product.getId(), product);
+      }
+      this.productBarcodesTemp = data.productBarcodes;
+      productBarcodeHashMap = new HashMap<>();
+      for (ProductBarcode barcode : data.productBarcodes) {
+        productBarcodeHashMap.put(barcode.getBarcode(), barcode);
+      }
+      int itemsDueCount = 0;
+      int itemsOverdueCount = 0;
+      int itemsExpiredCount = 0;
+      int itemsMissingCount = 0;
+      int itemsInStockCount = 0;
+      productIdsMissingStockItems = new HashMap<>();
+      this.stockItems = data.stockItems;
+      for (StockItem stockItem : stockItems) {
+        stockItem.setProduct(productHashMap.get(stockItem.getProductId()));
+        if (stockItem.isItemDue()) {
+          itemsDueCount++;
         }
-    );
+        if (stockItem.isItemOverdue()) {
+          itemsOverdueCount++;
+        }
+        if (stockItem.isItemExpired()) {
+          itemsExpiredCount++;
+        }
+        if (stockItem.isItemMissing()) {
+          itemsMissingCount++;
+          productIdsMissingStockItems.put(stockItem.getProductId(), stockItem);
+        }
+        if (!stockItem.isItemMissing() || stockItem.isItemMissingAndPartlyInStock()) {
+          itemsInStockCount++;
+        }
+      }
+
+      this.shoppingListItems = data.shoppingListItems;
+      shoppingListItemsProductIds = new ArrayList<>();
+      for (ShoppingListItem item : shoppingListItems) {
+        if (item.getProductId() != null && !item.getProductId().isEmpty()) {
+          shoppingListItemsProductIds.add(item.getProductId());
+        }
+      }
+      this.locations = data.locations;
+      filterChipLiveDataLocation.setLocations(locations);
+      locationHashMap = new HashMap<>();
+      for (Location location : locations) {
+        locationHashMap.put(location.getId(), location);
+      }
+
+      this.stockCurrentLocationsTemp = data.stockLocations;
+      stockLocationsHashMap = new HashMap<>();
+      for (StockLocation stockLocation : data.stockLocations) {
+        HashMap<Integer, StockLocation> locationsForProductId = stockLocationsHashMap
+            .get(stockLocation.getProductId());
+        if (locationsForProductId == null) {
+          locationsForProductId = new HashMap<>();
+          stockLocationsHashMap.put(stockLocation.getProductId(), locationsForProductId);
+        }
+        locationsForProductId.put(stockLocation.getLocationId(), stockLocation);
+      }
+
+      filterChipLiveDataStatus
+          .setDueSoonCount(itemsDueCount)
+          .setOverdueCount(itemsOverdueCount)
+          .setExpiredCount(itemsExpiredCount)
+          .setBelowStockCount(itemsMissingCount)
+          .setInStockCount(itemsInStockCount)
+          .emitCounts();
+      updateFilteredStockItems();
+      if (downloadAfterLoading) {
+        downloadData();
+      }
+    });
   }
 
   public void downloadData(@Nullable String dbChangedTime) {
@@ -407,7 +406,7 @@ public class StockOverviewViewModel extends BaseViewModel {
   }
 
   private void onQueueEmpty() {
-    repository.updateDatabase(
+    repository.store(
         this.quantityUnits,
         this.productGroups,
         this.stockItems,

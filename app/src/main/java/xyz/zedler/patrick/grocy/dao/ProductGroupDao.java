@@ -25,6 +25,8 @@ import androidx.room.Delete;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Single;
 import java.util.List;
 import xyz.zedler.patrick.grocy.model.ProductGroup;
 
@@ -37,11 +39,14 @@ public interface ProductGroupDao {
   @Query("SELECT * FROM product_group_table")
   List<ProductGroup> getAll();
 
-  @Query("SELECT COUNT(*) FROM product_group_table")
-  int count();
+  @Query("SELECT * FROM product_group_table")
+  Single<List<ProductGroup>> getAllRxSingle();
 
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   void insertAll(List<ProductGroup> productGroups);
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  Completable insertAllRx(List<ProductGroup> productGroups);
 
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   void insert(ProductGroup productGroup);
@@ -51,5 +56,8 @@ public interface ProductGroupDao {
 
   @Query("DELETE FROM product_group_table")
   void deleteAll();
+
+  @Query("DELETE FROM product_group_table")
+  Completable deleteAllRx();
 
 }

@@ -24,6 +24,7 @@ import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
+import io.reactivex.rxjava3.core.Single;
 import java.util.ArrayList;
 import java.util.List;
 import xyz.zedler.patrick.grocy.model.StockItem;
@@ -36,6 +37,9 @@ public interface StockItemDao {
 
   @Query("SELECT * FROM stock_item_table")
   List<StockItem> getAll();
+
+  @Query("SELECT * FROM stock_item_table")
+  Single<List<StockItem>> getAllRxSingle();
 
   @Query("SELECT COUNT(*) FROM stock_item_table")
   int count();
